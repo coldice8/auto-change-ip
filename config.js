@@ -7,6 +7,7 @@ const godaddySecret = "46L26ydpkwMaKZV6uVdDWe"; // 你的 Godaddy Secret
 // AWS 访问密钥创建地址：https://console.aws.amazon.com/iam/home#/security_credentials
 const AWSAccessKeyId = "XXXXX" // 你的 AWS 账号 ID
 const AWSSecretKey = "XXXXX" // 你的 AWS 秘钥
+const cycleTime = 1000 * 60 * 10 // 这里默认是 10 分钟循环一次
 
 /**
  * 需检查的服务器和更新的 A 记录列表
@@ -28,5 +29,6 @@ module.exports = {
   godaddySecret,
   AWSAccessKeyId,
   AWSSecretKey,
+  cycleTime,
   vpsList
 }
