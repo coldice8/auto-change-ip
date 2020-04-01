@@ -1,7 +1,10 @@
 const axios = require("axios");
 const ping = require("net-ping");
 const AWS = require('aws-sdk');
+const dayjs = require("dayjs");
 const config = require('./config');
+
+let count = 1;
 
 const godaddyInstance = axios.create({
   baseURL: config.godaddyUrl
@@ -105,14 +108,15 @@ function changeAWSLightsailVpsIp(vps) {
     if (!err) {
       const { staticIp: { ipAddress } } = data;
       if (ipAddress !== vps.ip) {
-        checkIpWork(ipAddress, (isConnected) => {
-          if (isConnected) {
-            const newVps = { ...vps, ip: ipAddress };
-            setGodaddyDnsIp(newVps);
-          } else {
-            operationStaticIp(vps);
-          }
-        })
+        checkIpWork(ipAddress)
+          .then(isConnected => {
+            if (isConnected) {
+              const newVps = { ...vps, ip: ipAddress };
+              setGodaddyDnsIp(newVps);
+            } else {
+              operationStaticIp(vps);
+            }
+          })
       } else {
         operationStaticIp(vps);
       }
@@ -123,46 +127,52 @@ function changeAWSLightsailVpsIp(vps) {
 /**
  * 检查 ip 是否已经被封锁
  * @param {string} ip 
- * @param {function} callback 
  */
-function checkIpWork(ip, callback) {
-  const options = {
-    networkProtocol: ping.NetworkProtocol.IPv4,
-    packetSize: 16,
-    retries: 4, // 每个 ip 重复 ping 4 次，还是 ping 不通的话，视为 blocked
-    // sessionId: (process.pid % 65535),
-    sessionId: Math.round(Math.random() * 65535),
-    timeout: 2000,
-    ttl: 128
-  };
-  const session = ping.createSession(options);
-  session.pingHost(ip, function (error, target) {
-    if (error) {
-      console.log(`${target}: ${error.toString()}`);
-    }
-    else {
-      console.log(`${target}: Alive`);
-    }
-    if (callback) callback(!error);
-  });
+function checkIpWork(ip) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      networkProtocol: ping.NetworkProtocol.IPv4,
+      packetSize: 16,
+      retries: 4, // 每个 ip 重复 ping 4 次，还是 ping 不通的话，视为 blocked
+      // sessionId: (process.pid % 65535),
+      sessionId: Math.round(Math.random() * 65535),
+      timeout: 2000,
+      ttl: 128
+    };
+    const session = ping.createSession(options);
+    session.pingHost(ip, (error, target) => {
+      if (error) {
+        if (error instanceof ping.RequestTimedOutError) {
+          resolve(false);
+        } else {
+          reject(error.toString());
+        }
+      }
+      else {
+        resolve(true);
+      }
+    });
+  })
 }
 
 // 检查服务器列表里 Godaddy 域名对应的 ip 是否被封，如果被封，更换 ip
-function checkVpsListNChangeIp() {
-  config.vpsList.forEach((vps) => {
-    getGodaddyDnsIp(vps.dnsName)
-      .then(ip => {
-        vps.ip = ip;
-        checkIpWork(vps.ip, (isConnected) => {
-          if (!isConnected) {
-            changeAWSLightsailVpsIp(vps);
-          }
-        });
-      })
-      .catch(err => {
-        console.error(err);
-      })
-  })
+async function checkVpsListNChangeIp() {
+  for (let vps of config.vpsList) {
+    try {
+      const ip = await getGodaddyDnsIp(vps.dnsName);
+      vps.ip = ip;
+    } catch (err) {
+      console.error(err);
+    }
+    const isConnected = await checkIpWork(vps.ip);
+    if (!isConnected) {
+      console.log(`${vps.dnsName}-${vps.ip}: Blocked`);
+      changeAWSLightsailVpsIp(vps);
+    } else {
+      console.log(`${vps.dnsName}-${vps.ip}: Alive`);
+    }
+  }
+  console.log(`============== 第 ${count++} 次检测完毕 ${dayjs().format('YYYY-MM-DD HH:mm:ss')} ==============`);
 }
 
 checkVpsListNChangeIp();
