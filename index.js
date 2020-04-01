@@ -48,10 +48,12 @@ function setGodaddyDnsIp(vps) {
     godaddyInstance.put(`/v1/domains/${config.domain}/records/A/${vps.dnsName}`, params)
       .then(res => {
         if (res.status === 200) {
+          console.log('替换域名对应的 ip 成功！');
           resolve();
         }
       })
       .catch(err => {
+        console.error(err);
         reject(err);
       });
   })
@@ -105,7 +107,8 @@ function changeAWSLightsailVpsIp(vps) {
       if (ipAddress !== vps.ip) {
         checkIpWork(ipAddress, (isConnected) => {
           if (isConnected) {
-            setGodaddyDnsIp(vps);
+            const newVps = { ...vps, ip: ipAddress };
+            setGodaddyDnsIp(newVps);
           } else {
             operationStaticIp(vps);
           }
