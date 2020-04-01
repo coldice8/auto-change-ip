@@ -105,7 +105,8 @@ function changeAWSLightsailVpsIp(vps) {
       if (ipAddress !== vps.ip) {
         checkIpWork(ipAddress, (isConnected) => {
           if (isConnected) {
-            setGodaddyDnsIp(vps);
+            const newVps = { ...vps, ip: ipAddress };
+            setGodaddyDnsIp(newVps);
           } else {
             operationStaticIp(vps);
           }
