@@ -133,10 +133,10 @@ function checkIpWork(ip) {
     const options = {
       networkProtocol: ping.NetworkProtocol.IPv4,
       packetSize: 16,
-      retries: 4, // 每个 ip 重复 ping 4 次，还是 ping 不通的话，视为 blocked
+      retries: config.pingRetries,
       // sessionId: (process.pid % 65535),
       sessionId: Math.round(Math.random() * 65535),
-      timeout: 2000,
+      timeout: config.pingTimeout,
       ttl: 128
     };
     const session = ping.createSession(options);
@@ -175,6 +175,7 @@ async function checkVpsListNChangeIp() {
   console.log(`============== 第 ${count++} 次检测完毕 ${dayjs().format('YYYY-MM-DD HH:mm:ss')} ==============`);
 }
 
+console.log(`============== 检测开始 ${dayjs().format('YYYY-MM-DD HH:mm:ss')} ==============`);
 checkVpsListNChangeIp();
 setInterval(() => {
   checkVpsListNChangeIp();

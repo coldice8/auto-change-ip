@@ -8,6 +8,8 @@ const godaddySecret = "46L26ydpkwMaKZV6uVdDWe"; // 你的 Godaddy Secret
 const AWSAccessKeyId = "XXXXX" // 你的 AWS 账号 ID
 const AWSSecretKey = "XXXXX" // 你的 AWS 秘钥
 const cycleTime = 1000 * 60 * 10 // 这里默认是 10 分钟循环一次
+const pingRetries = 4 // 每个 ip 重复 ping 次数，还是 ping 不通的话，视为 blocked，这里默认 4 次
+const pingTimeout = 5000 // ping 超时时间，这里默认 5 秒
 
 /**
  * 需检查的服务器和更新的 A 记录列表
@@ -30,5 +32,7 @@ module.exports = {
   AWSAccessKeyId,
   AWSSecretKey,
   cycleTime,
-  vpsList
+  pingRetries,
+  pingTimeout,
+  vpsList,
 }
