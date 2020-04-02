@@ -14,6 +14,8 @@ const godaddyInstance = axios.create({
 godaddyInstance.defaults.headers.common['Authorization'] = `sso-key ${config.godaddyKey}:${config.godaddySecret}`;
 
 /*
+// 获取 Godaddy 授权账号下的所有域名
+// 此处代码为了测试申请的认证是否能正常使用
 godaddyInstance.get("/v1/domains").then(res => {
   if (res.status === 200) {
     console.log('====================================');
@@ -23,11 +25,25 @@ godaddyInstance.get("/v1/domains").then(res => {
 }).catch(err => {
   console.error(err);
 });
+
+// 获取 AWS Lightsail 的某区域下是否有服务器实例
+// 此处代码为了测试申请的认证是否能正常使用
+const lightsail = new AWS.Lightsail({
+  accessKeyId: config.AWSAccessKeyId,
+  secretAccessKey: config.AWSSecretKey,
+  region: 'us-west-2'
+});
+lightsail.getInstances({}, (err, data) => {
+  if (err)
+    console.error(err, err.stack); // an error occurred
+  else
+    console.log(data);           // successful response
+});
 */
 
 // 获取 Godaddy 某域名的 A 类型某名称对应的 ip
 function getGodaddyDnsIp(dnsName) {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, reject) => {
     godaddyInstance.get(`/v1/domains/${config.domain}/records/A/${dnsName}`)
       .then(res => {
         if (res.status === 200) {
@@ -43,84 +59,76 @@ function getGodaddyDnsIp(dnsName) {
 
 // 设置 Godaddy 某域名的 A 类型某名称对应的 ip
 function setGodaddyDnsIp(vps) {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, reject) => {
     const params = [{
-      "data": vps.ip,
+      "data": vps.domainIp,
       "ttl": 600,
     }];
     godaddyInstance.put(`/v1/domains/${config.domain}/records/A/${vps.dnsName}`, params)
       .then(res => {
         if (res.status === 200) {
-          console.log('替换域名对应的 ip 成功！');
+          console.log(`替换域名 ${vps.dnsName} 对应的 ip ${vps.domainIp} 成功！`);
           resolve();
         }
+        reject(res);
       })
       .catch(err => {
-        console.error(err);
         reject(err);
       });
   })
 }
 
-// 删除关联的 ip，分配新 ip，并关联绑定服务器示例
+// 删除关联的 ip，分配新 ip，并关联绑定服务器实例
 function operationStaticIp(vps) {
-  const lightsail = new AWS.Lightsail({
-    accessKeyId: config.AWSAccessKeyId,
-    secretAccessKey: config.AWSSecretKey,
-    region: vps.region
-  });
-  lightsail.releaseStaticIp({ staticIpName: vps.staticIpName }, function (err, data) {
-    if (!err) {
-      console.log('删除旧的静态 IP 成功！');
-      lightsail.allocateStaticIp({ staticIpName: vps.staticIpName }, function (err, data) {
-        if (!err) {
-          console.log('分配新的静态 IP 成功！');
-          lightsail.attachStaticIp({ instanceName: vps.instanceName, staticIpName: vps.staticIpName }, function (err, data) {
-            if (!err) {
-              console.log('新 IP 绑定成功！');
-              lightsail.getStaticIp({ staticIpName: vps.staticIpName }, function (err, data) {
-                const { staticIp: { ipAddress } } = data;
-                const newVps = { ...vps, ip: ipAddress };
-                setGodaddyDnsIp(newVps);
-              })
-            } else {
-              console.error(err, err.stack);
-            }
-          })
-        } else {
-          console.error(err, err.stack);
-        }
-      });
-    } else {
-      console.error(err, err.stack);
-    }
-  });
+  return new Promise((resolve, reject) => {
+    const lightsail = new AWS.Lightsail({
+      accessKeyId: config.AWSAccessKeyId,
+      secretAccessKey: config.AWSSecretKey,
+      region: vps.region
+    });
+    lightsail.releaseStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
+      if (!err || err.code === "NotFoundException") {
+        console.log(`删除 ${vps.instanceName} 旧的静态 IP 成功！`);
+        lightsail.allocateStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
+          if (!err) {
+            console.log(`分配 ${vps.instanceName} 新的静态 IP 成功！`);
+            lightsail.attachStaticIp({ instanceName: vps.instanceName, staticIpName: vps.staticIpName }, (err, data) => {
+              if (!err) {
+                console.log(`${vps.instanceName} 新 IP 绑定成功！`);
+                resolve();
+              } else {
+                reject(err);
+              }
+            })
+          } else {
+            reject(err);
+          }
+        });
+      } else {
+        reject(err);
+      }
+    });
+  })
 }
 
-// 解除绑定 AWS 服务器实例绑定的静态 ip，并申请新的 ip，再绑定
-function changeAWSLightsailVpsIp(vps) {
-  const lightsail = new AWS.Lightsail({
-    accessKeyId: config.AWSAccessKeyId,
-    secretAccessKey: config.AWSSecretKey,
-    region: vps.region
-  });
-  lightsail.getStaticIp({ staticIpName: vps.staticIpName }, function (err, data) {
-    if (!err) {
-      const { staticIp: { ipAddress } } = data;
-      if (ipAddress !== vps.ip) {
-        checkIpWork(ipAddress)
-          .then(isConnected => {
-            if (isConnected) {
-              const newVps = { ...vps, ip: ipAddress };
-              setGodaddyDnsIp(newVps);
-            } else {
-              operationStaticIp(vps);
-            }
-          })
+// 获取 AWS 服务器实例绑定的静态 ip
+function getAWSLightsailVpsIp(vps) {
+  return new Promise((resolve, reject) => {
+    const lightsail = new AWS.Lightsail({
+      accessKeyId: config.AWSAccessKeyId,
+      secretAccessKey: config.AWSSecretKey,
+      region: vps.region
+    });
+    lightsail.getStaticIp({ staticIpName: vps.staticIpName }, function (err, data) {
+      if (!err) {
+        const { staticIp: { ipAddress } } = data;
+        resolve(ipAddress);
+      } else if (err.code === "NotFoundException") {
+        resolve();
       } else {
-        operationStaticIp(vps);
+        reject(err);
       }
-    }
+    })
   })
 }
 
@@ -155,42 +163,47 @@ function checkIpWork(ip) {
   })
 }
 
+async function getVpsIpAndChangeDomainIp(vps) {
+  try {
+    const vpsIp = await getAWSLightsailVpsIp(vps);
+    console.log(`VPS ${vps.instanceName} ip: ${vpsIp}`);
+    if (vpsIp && vpsIp !== vps.domainIp) {
+      const isConnected = await checkIpWork(vpsIp);
+      if (isConnected) {
+        const newVps = { ...vps, domainIp: vpsIp };
+        await setGodaddyDnsIp(newVps);
+        return;
+      }
+    }
+    await operationStaticIp(vps);
+    await getVpsIpAndChangeDomainIp(vps);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 // 检查服务器列表里 Godaddy 域名对应的 ip 是否被封，如果被封，更换 ip
-async function checkVpsListNChangeIp() {
+async function checkVpsListAndChangeIp() {
   for (let vps of config.vpsList) {
     try {
-      const ip = await getGodaddyDnsIp(vps.dnsName);
-      vps.ip = ip;
+      const domainIp = await getGodaddyDnsIp(vps.dnsName);
+      const isConnected = await checkIpWork(domainIp);
+      if (!isConnected) {
+        console.log(`Domain ${vps.dnsName} ${domainIp}: Blocked`);
+        const newVps = { ...vps, domainIp };
+        await getVpsIpAndChangeDomainIp(newVps);
+      } else {
+        console.log(`Domain ${vps.dnsName} ${domainIp}: Alive`);
+      }
     } catch (err) {
       console.error(err);
-    }
-    const isConnected = await checkIpWork(vps.ip);
-    if (!isConnected) {
-      console.log(`${vps.dnsName}-${vps.ip}: Blocked`);
-      changeAWSLightsailVpsIp(vps);
-    } else {
-      console.log(`${vps.dnsName}-${vps.ip}: Alive`);
     }
   }
   console.log(`============== 第 ${count++} 次检测完毕 ${dayjs().format('YYYY-MM-DD HH:mm:ss')} ==============`);
 }
 
 console.log(`============== 检测开始 ${dayjs().format('YYYY-MM-DD HH:mm:ss')} ==============`);
-checkVpsListNChangeIp();
+checkVpsListAndChangeIp();
 setInterval(() => {
-  checkVpsListNChangeIp();
+  checkVpsListAndChangeIp();
 }, config.cycleTime)
-
-/*
-const lightsail = new AWS.Lightsail({
-  accessKeyId: config.AWSAccessKeyId,
-  secretAccessKey: config.AWSSecretKey,
-  region: 'us-west-2'
-});
-lightsail.getInstances({}, function (err, data) {
-  if (err)
-    console.log(err, err.stack); // an error occurred
-  else
-    console.log(data);           // successful response
-});
-*/
