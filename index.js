@@ -50,9 +50,10 @@ function getGodaddyDnsIp(dnsName) {
           const [{ data }] = res.data;
           resolve(data);
         }
+        reject(res);
       })
       .catch(err => {
-        reject(err);
+        reject(`get godaddy domain ip failed: ${err.code}`);
       });
   })
 }
@@ -73,7 +74,7 @@ function setGodaddyDnsIp(vps) {
         reject(res);
       })
       .catch(err => {
-        reject(err);
+        reject(`set godaddy domain ip failed: ${err.code}`);
       });
   })
 }
@@ -88,24 +89,24 @@ function operationStaticIp(vps) {
     });
     lightsail.releaseStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
       if (!err || err.code === "NotFoundException") {
-        console.log(`删除 ${vps.instanceName} 旧的静态 IP 成功！`);
+        console.log(`删除 VPS ${vps.instanceName} 旧的静态 IP 成功！`);
         lightsail.allocateStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
           if (!err) {
-            console.log(`分配 ${vps.instanceName} 新的静态 IP 成功！`);
+            console.log(`分配 VPS ${vps.instanceName} 新的静态 IP 成功！`);
             lightsail.attachStaticIp({ instanceName: vps.instanceName, staticIpName: vps.staticIpName }, (err, data) => {
               if (!err) {
-                console.log(`${vps.instanceName} 新 IP 绑定成功！`);
+                console.log(`VPS ${vps.instanceName} 新 IP 绑定成功！`);
                 resolve();
               } else {
-                reject(err);
+                reject(err.code);
               }
             })
           } else {
-            reject(err);
+            reject(err.code);
           }
         });
       } else {
-        reject(err);
+        reject(err.code);
       }
     });
   })
@@ -126,7 +127,7 @@ function getAWSLightsailVpsIp(vps) {
       } else if (err.code === "NotFoundException") {
         resolve();
       } else {
-        reject(err);
+        reject(err.code);
       }
     })
   })
