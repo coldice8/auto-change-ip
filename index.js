@@ -7,11 +7,10 @@ const config = require('./config');
 let count = 1;
 
 const godaddyInstance = axios.create({
-  baseURL: config.godaddyUrl
+  baseURL: config.godaddyUrl,
+  timeout: config.godaddyTimeout,
+  headers: { 'Authorization': `sso-key ${config.godaddyKey}:${config.godaddySecret}` } // 接口添加 Godaddy 的授权认证
 });
-
-// 接口添加 Godaddy 的授权认证
-godaddyInstance.defaults.headers.common['Authorization'] = `sso-key ${config.godaddyKey}:${config.godaddySecret}`;
 
 /*
 // 获取 Godaddy 授权账号下的所有域名
@@ -50,10 +49,11 @@ function getGodaddyDnsIp(dnsName) {
           const [{ data }] = res.data;
           resolve(data);
         }
-        reject(res);
+        reject(res.response.statusText);
       })
       .catch(err => {
-        reject(`get godaddy domain ip failed: ${err.code}`);
+        const errText = err.code || (err.response && err.response.statusText)
+        reject(`get godaddy domain ip failed: ${errText}`);
       });
   })
 }
@@ -71,10 +71,11 @@ function setGodaddyDnsIp(vps) {
           console.log(`替换域名 ${vps.dnsName} 对应的 ip ${vps.domainIp} 成功！`);
           resolve();
         }
-        reject(res);
+        reject(res.response.statusText);
       })
       .catch(err => {
-        reject(`set godaddy domain ip failed: ${err.code}`);
+        const errText = err.code || (err.response && err.response.statusText)
+        reject(`set godaddy domain ip failed: ${errText}`);
       });
   })
 }
