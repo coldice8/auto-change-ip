@@ -12,7 +12,7 @@
   },
   "devDependencies": {},
   "scripts": {
-    "dev": "node index.js"
+    "dev": "node index.js > app_log.log 2> app_err.log"
   },
   "author": "coldice945",
   "license": "MIT"
