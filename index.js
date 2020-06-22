@@ -91,21 +91,23 @@ function operationStaticIp(vps) {
     lightsail.releaseStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
       if (!err || err.code === "NotFoundException") {
         console.log(`删除 VPS ${vps.instanceName} 旧的静态 IP 成功！`);
-        lightsail.allocateStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
-          if (!err) {
-            console.log(`分配 VPS ${vps.instanceName} 新的静态 IP 成功！`);
-            lightsail.attachStaticIp({ instanceName: vps.instanceName, staticIpName: vps.staticIpName }, (err, data) => {
-              if (!err) {
-                console.log(`VPS ${vps.instanceName} 新 IP 绑定成功！`);
-                resolve();
-              } else {
-                reject(err.code);
-              }
-            })
-          } else {
-            reject(err.code);
-          }
-        });
+        setTimeout(() => {
+          lightsail.allocateStaticIp({ staticIpName: vps.staticIpName }, (err, data) => {
+            if (!err) {
+              console.log(`分配 VPS ${vps.instanceName} 新的静态 IP 成功！`);
+              lightsail.attachStaticIp({ instanceName: vps.instanceName, staticIpName: vps.staticIpName }, (err, data) => {
+                if (!err) {
+                  console.log(`VPS ${vps.instanceName} 新 IP 绑定成功！`);
+                  resolve();
+                } else {
+                  reject(err.code);
+                }
+              })
+            } else {
+              reject(err.code);
+            }
+          });
+        }, config.waitingTime)
       } else {
         reject(err.code);
       }

@@ -11,6 +11,7 @@ const cycleTime = 1000 * 60 * 10; // 这里默认是 10 分钟循环一次
 const pingRetries = 4; // 每个 ip 重复 ping 次数，还是 ping 不通的话，视为 blocked，这里默认 4 次
 const pingTimeout = 5000; // ping 超时时间，这里默认 5 秒
 const godaddyTimeout = 10000; // 设置请求 godaddy 接口超时时间，这里默认 10 秒，建议设长一些在大陆地区网络不是很好
+const waitingTime = 30000; // 设置删除静态 ip 后等待多久请求分配静态 ip，这里默认半分钟后，防止删除 ip 后马上分配 ip 导致请求的就是删除的。
 
 /**
  * 需检查的服务器和更新的 A 记录列表
@@ -37,4 +38,5 @@ module.exports = {
   pingTimeout,
   godaddyTimeout,
   vpsList,
+  waitingTime,
 }
