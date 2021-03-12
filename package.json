@@ -5,9 +5,9 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "aws-sdk": "^2.648.0",
-    "axios": "^0.19.2",
-    "dayjs": "^1.8.23",
+    "aws-sdk": "^2.862.0",
+    "axios": "^0.21.1",
+    "dayjs": "^1.10.4",
     "net-ping": "^1.2.3"
   },
   "devDependencies": {},
