@@ -7,7 +7,7 @@
 ## 使用方法：
 
 ```bash
-git clone https://github.com/coldice945/auto-change-ip.git
+git clone https://github.com/coldice8/auto-change-ip.git
 ```
 
 修改 config.js 文件里的参数。
