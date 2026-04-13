@@ -6,7 +6,7 @@
   "main": "index.js",
   "dependencies": {
     "aws-sdk": "^2.862.0",
-    "axios": "^0.21.1",
+    "axios": "^1.15.0",
     "dayjs": "^1.10.4",
     "net-ping": "^1.2.3"
   },
